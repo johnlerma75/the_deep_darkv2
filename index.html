@@ -565,7 +565,9 @@
         });
 
         // Initialize leaderboard on page load
-        displayLeaderboard();
+-        displayLeaderboard();
++        // Wait until DOMContentLoaded (module scripts run before this), then initialize leaderboard
++        window.addEventListener('DOMContentLoaded', displayLeaderboard);
     })();
 </script>
 </body>
