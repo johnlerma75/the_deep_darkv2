@@ -475,5 +475,28 @@
         displayLeaderboard();
     })();
 </script>
+    <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyA57oiC8wQcWCUbHeqN-xJDlhzM4LQlsWc",
+    authDomain: "the-deep-darkv2.firebaseapp.com",
+    projectId: "the-deep-darkv2",
+    storageBucket: "the-deep-darkv2.firebasestorage.app",
+    messagingSenderId: "200556318632",
+    appId: "1:200556318632:web:a9389ab08ae5dec71b179d",
+    measurementId: "G-RJTGS6M2S1"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+    </script>
 </body>
 </html>
