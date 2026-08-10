@@ -443,5 +443,41 @@ colab_html_game = """
             let uIn = document.getElementById('user-in').value.trim();
             let pIn = document.getElementById('pass-in').value.trim();
 
+
             if(pIn === "75") {
-                user 
+                user = "DUNGEON MASTER";
+            } else {
+                user = uIn !== "" ? uIn.toUpperCase() : "GUEST";
+            }
+
+            document.getElementById('disp-name').innerText = user;
+            document.getElementById('start-screen').classList.add('hidden');
+
+            depth = 1; rad = 3.8; pulses = 0; moveCount = 0;
+            init();
+            draw();
+        };
+
+        window.returnToMenu = function() {
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            displayLeaderboard();
+        };
+
+        // Keyboard Navigation Support
+        document.addEventListener('keydown', function(evt) {
+            if (document.getElementById('start-screen').classList.contains('hidden') &&
+                document.getElementById('game-over-screen').classList.contains('hidden')) {
+                if (evt.key === "ArrowUp" || evt.key === "w" || evt.key === "W") move(0, -1);
+                if (evt.key === "ArrowDown" || evt.key === "s" || evt.key === "S") move(0, 1);
+                if (evt.key === "ArrowLeft" || evt.key === "a" || evt.key === "A") move(-1, 0);
+                if (evt.key === "ArrowRight" || evt.key === "d" || evt.key === "D") move(1, 0);
+                if (evt.key === " " || evt.key === "p" || evt.key === "P") usePulse();
+            }
+        });
+
+        displayLeaderboard();
+    })();
+</script>
+</body>
+</html>
