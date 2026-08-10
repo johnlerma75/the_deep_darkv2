@@ -96,6 +96,9 @@
         .leaderboard-rank { color: #888; width: 20px; }
         .leaderboard-name { flex: 1; text-align: left; }
         .leaderboard-score { color: #fff; font-weight: bold; }
+        
+        .firebase-status { font-size: 10px; color: #00aaff; margin-top: 8px; }
+        .error-msg { color: #ff0033; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -141,6 +144,7 @@
             <div id="board-ui" style="font-size: 11px; color: #00ff41;">
                 LOADING DATA...
             </div>
+            <div class="firebase-status" id="firebase-status"></div>
         </div>
     </div>
 
@@ -157,9 +161,41 @@
                 <span id="final-moves" style="color: #ffd700; font-weight: bold;">0</span>
             </div>
         </div>
+        <div id="upload-status" style="font-size: 11px; color: #00ff41; margin: 10px 0;"></div>
         <button class="primary-btn" onclick="returnToMenu()">RETRY</button>
     </div>
 </div>
+
+<!-- Firebase SDK -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyA57oiC8wQcWCUbHeqN-xJDlhzM4LQlsWc",
+        authDomain: "the-deep-darkv2.firebaseapp.com",
+        projectId: "the-deep-darkv2",
+        storageBucket: "the-deep-darkv2.firebasestorage.app",
+        messagingSenderId: "200556318632",
+        appId: "1:200556318632:web:a9389ab08ae5dec71b179d"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Make Firestore functions globally accessible
+    window.firebaseDb = db;
+    window.firebaseAddDoc = addDoc;
+    window.firebaseQuery = query;
+    window.firebaseOrderBy = orderBy;
+    window.firebaseLimit = limit;
+    window.firebaseGetDocs = getDocs;
+    window.firebaseCollection = collection;
+    window.firebaseServerTimestamp = serverTimestamp;
+    window.firebaseReady = true;
+</script>
 
 <script>
     (function() {
@@ -235,42 +271,82 @@
             window.open(PAY_URL, '_blank');
         };
 
+        function updateFirebaseStatus(msg, isError = false) {
+            const el = document.getElementById('firebase-status');
+            if (el) {
+                el.innerHTML = msg;
+                el.className = isError ? 'firebase-status error-msg' : 'firebase-status';
+            }
+        }
+
         class Leaderboard {
-            static load() {
+            static async load() {
+                if (!window.firebaseReady || !window.firebaseDb) {
+                    console.warn("Firebase not ready, using local memory");
+                    return memoryLeaderboard;
+                }
+                
                 try {
-                    const data = localStorage.getItem(STORAGE_KEY);
-                    return data ? JSON.parse(data) : memoryLeaderboard;
+                    const q = window.firebaseQuery(
+                        window.firebaseCollection(window.firebaseDb, "leaderboard"),
+                        window.firebaseOrderBy("score", "desc"),
+                        window.firebaseLimit(10)
+                    );
+                    const snapshot = await window.firebaseGetDocs(q);
+                    const entries = [];
+                    snapshot.forEach(doc => {
+                        entries.push(doc.data());
+                    });
+                    return entries;
                 } catch (err) {
+                    console.error("Firebase load error:", err);
+                    updateFirebaseStatus("⚠ Load error", true);
                     return memoryLeaderboard;
                 }
             }
 
-            static save(entries) {
+            static async addScore(name, score, moves) {
+                if (!window.firebaseReady || !window.firebaseDb) {
+                    console.warn("Firebase not ready, saving to local memory");
+                    memoryLeaderboard.push({ name, score, moves, timestamp: new Date().toISOString() });
+                    return;
+                }
+
                 try {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+                    updateFirebaseStatus("⟳ Uploading...");
+                    await window.firebaseAddDoc(
+                        window.firebaseCollection(window.firebaseDb, "leaderboard"),
+                        {
+                            name: name,
+                            score: score,
+                            moves: moves,
+                            timestamp: window.firebaseServerTimestamp()
+                        }
+                    );
+                    document.getElementById('upload-status').innerText = "✓ Score uploaded to global leaderboard";
+                    updateFirebaseStatus("✓ Live");
                 } catch (err) {
-                    memoryLeaderboard = entries;
+                    console.error("Firebase save error:", err);
+                    updateFirebaseStatus("⚠ Offline", true);
+                    document.getElementById('upload-status').innerText = "⚠ Saved locally (no connection)";
+                    memoryLeaderboard.push({ name, score, moves, timestamp: new Date().toISOString() });
                 }
             }
 
-            static addScore(name, score, moves) {
-                const entries = this.load();
-                entries.push({ name: name, score: score, moves: moves, timestamp: new Date().toISOString() });
-                entries.sort((a, b) => b.score - a.score);
-                this.save(entries.slice(0, 10));
-            }
-
-            static getTopScores(limit = 5) {
-                return this.load().slice(0, limit);
+            static async getTopScores(limit = 5) {
+                const entries = await this.load();
+                return entries.slice(0, limit);
             }
         }
 
-        function displayLeaderboard() {
+        async function displayLeaderboard() {
             try {
-                const scores = Leaderboard.getTopScores(5);
+                updateFirebaseStatus("Syncing...");
+                const scores = await Leaderboard.getTopScores(5);
                 const boardUi = document.getElementById('board-ui');
                 if (!scores || scores.length === 0) {
                     boardUi.innerHTML = "NO SURVIVORS YET";
+                    updateFirebaseStatus("");
                     return;
                 }
                 let html = "";
@@ -282,8 +358,11 @@
                     </div>`;
                 });
                 boardUi.innerHTML = html;
+                updateFirebaseStatus("✓ Live");
             } catch (e) {
+                console.error("Display leaderboard error:", e);
                 document.getElementById('board-ui').innerHTML = "SYSTEM OK";
+                updateFirebaseStatus("⚠ Error", true);
             }
         }
 
@@ -426,6 +505,7 @@
                 draw();
 
                 if((rad <= 0.2 || (p.x === e.x && p.y === e.y)) && user !== "DUNGEON MASTER") {
+                    // Save to Firestore
                     Leaderboard.addScore(user, depth, moveCount);
                     document.getElementById('final-depth').innerText = depth;
                     document.getElementById('final-moves').innerText = moveCount;
@@ -438,7 +518,6 @@
             initAudio();
             let uIn = document.getElementById('user-in').value.trim();
             let pIn = document.getElementById('pass-in').value.trim();
-
 
             if(pIn === "75") {
                 user = "DUNGEON MASTER";
@@ -472,31 +551,9 @@
             }
         });
 
+        // Initialize leaderboard on page load
         displayLeaderboard();
     })();
 </script>
-    <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyA57oiC8wQcWCUbHeqN-xJDlhzM4LQlsWc",
-    authDomain: "the-deep-darkv2.firebaseapp.com",
-    projectId: "the-deep-darkv2",
-    storageBucket: "the-deep-darkv2.firebasestorage.app",
-    messagingSenderId: "200556318632",
-    appId: "1:200556318632:web:a9389ab08ae5dec71b179d",
-    measurementId: "G-RJTGS6M2S1"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-    </script>
 </body>
 </html>
