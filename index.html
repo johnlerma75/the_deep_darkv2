@@ -168,8 +168,10 @@
 
 <!-- Firebase SDK -->
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    // Use Firebase JS SDK v10.12.0
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
 
     // Your web app's Firebase configuration
     const firebaseConfig = {
@@ -178,12 +180,23 @@
         projectId: "the-deep-darkv2",
         storageBucket: "the-deep-darkv2.firebasestorage.app",
         messagingSenderId: "200556318632",
-        appId: "1:200556318632:web:a9389ab08ae5dec71b179d"
+        appId: "1:200556318632:web:a9389ab08ae5dec71b179d",
+        measurementId: "G-RJTGS6M2S1"
     };
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+
+    // Initialize Analytics and log initial page_view
+    try {
+        const analytics = getAnalytics(app);
+        // Optional: record a page_view for single-page apps or custom routing
+        logEvent(analytics, 'page_view', { page_path: window.location.pathname });
+    } catch (e) {
+        // Analytics may fail in some environments; continue without blocking
+        console.warn('Analytics init failed:', e);
+    }
 
     // Make Firestore functions globally accessible
     window.firebaseDb = db;
