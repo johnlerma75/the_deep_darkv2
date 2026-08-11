@@ -209,6 +209,9 @@
     window.firebaseCollection = collection;
     window.firebaseServerTimestamp = serverTimestamp;
     window.firebaseReady = true;
+
+    // Dispatch custom event to signal Firebase initialization is complete
+    window.dispatchEvent(new CustomEvent('firebaseInitialized'));
 </script>
 
 <script>
@@ -565,9 +568,13 @@
             }
         });
 
-        // Initialize leaderboard on page load
-        // Wait until DOMContentLoaded (module scripts run before this), then initialize leaderboard
-        window.addEventListener('DOMContentLoaded', displayLeaderboard);
+        // Listen for Firebase initialization complete event and display leaderboard
+        window.addEventListener('firebaseInitialized', displayLeaderboard);
+
+        // Also handle the case where Firebase is already initialized before this script runs
+        if (window.firebaseReady) {
+            displayLeaderboard();
+        }
     })();
 </script>
 </body>
