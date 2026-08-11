@@ -1,3 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Deep Dark: Ironclad Edition</title>
+    <style>
+        * { box-sizing: border-box; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+        .game-wrapper {
+            background: #000; color: #00ff41; font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 680px; width: 100%; margin: 0; position: relative; overflow: hidden;
+            border-radius: 12px; border: 1px solid #222; padding: 10px 0;
+        }
+
+        /* Top HUD Bar */
+        #ui-header {
+            position: absolute; top: 15px; width: 90%; max-width: 400px;
+            display: flex; flex-direction: column; gap: 4px; z-index: 5;
+        }
+        .stats-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; text-shadow: 0 0 5px #00ff41; }
+        #fuel-wrap { width: 100%; height: 6px; background: #111; border: 1px solid #333; margin: 4px 0; border-radius: 3px; overflow: hidden; }
+        #fuel-bar { height: 100%; background: linear-gradient(90deg, #00441b, #00ff41); width: 100%; transition: width 0.3s; }
+
+        canvas {
+            border: 2px solid #1a1a1a; background: #000;
+            width: 320px; height: 320px; max-width: 400px; max-height: 400px;
+            margin-top: 50px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+        }
+
+        /* Ergonomic Gamepad */
+        #gamepad {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 95%; max-width: 400px; margin-top: 15px; padding: 10px;
+        }
+        #movement-grid { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(2, 50px); gap: 8px; }
+        .ctrl-btn {
+            width: 50px; height: 50px; background: rgba(255,255,255,0.05);
+            border: 1px solid #222; color: #00ff41; font-size: 20px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; border-radius: 10px;
+        }
+        .ctrl-btn:active { background: #00ff41; color: #000; transform: scale(0.92); }
+
+        #pulse-btn {
+            width: 75px; height: 75px; border-radius: 50%; background: #001a33;
+            border: 2px solid #00aaff; color: #00aaff; font-weight: bold; font-size: 13px; cursor: pointer;
+            box-shadow: 0 0 10px #00aaff; opacity: 0.3; pointer-events: none; transition: all 0.2s;
+        }
+        #pulse-btn.ready { opacity: 1; pointer-events: auto; animation: pulse-glow 1.5s infinite; }
+        #pulse-btn:active { transform: scale(0.9); background: #00aaff; color: #000; }
+        @keyframes pulse-glow { 0% { box-shadow: 0 0 5px #00aaff; } 50% { box-shadow: 0 0 20px #00aaff; } 100% { box-shadow: 0 0 5px #00aaff; } }
+
+        /* Modals */
+        .modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.98); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 100; padding: 20px;
+            text-align: center;
+        }
+        .modal.hidden { display: none; }
+        .input-box { background: #000; border: 1px solid #333; color: #00ff41; padding: 12px; margin: 6px; width: 260px; text-align: center; font-family: inherit; font-size: 15px; }
+        .primary-btn { background: #00ff41; color: #000; border: none; padding: 12px 28px; cursor: pointer; font-family: inherit; font-weight: bold; margin: 10px; border-radius: 5px; }
+
+        .support-btn {
+            background: transparent;
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            padding: 8px 16px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            margin: 5px 0 15px 0;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+            width: 260px;
+            border-radius: 5px;
+        }
+        .support-btn:active {
+            background: rgba(255, 215, 0, 0.2);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+            transform: scale(0.98);
+        }
+
+        #board-container {
+            margin: 5px 0; padding: 10px; border: 1px solid #222;
+            background: rgba(0,255,65,0.02); width: 260px; border-radius: 8px;
+        }
+
+        .leaderboard-entry {
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+        .leaderboard-rank { color: #888; width: 20px; }
+        .leaderboard-name { flex: 1; text-align: left; }
+        .leaderboard-score { color: #fff; font-weight: bold; }
+        
+        .firebase-status { font-size: 10px; color: #00aaff; margin-top: 8px; }
+        .error-msg { color: #ff0033; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<div class="game-wrapper">
+    <div id="ui-header">
+        <div class="stats-row">
+            <div id="disp-name">AUTH_PENDING</div>
+            <div id="disp-depth">DEPTH: 1</div>
+        </div>
+        <div id="fuel-wrap"><div id="fuel-bar"></div></div>
+        <div class="stats-row" style="font-size: 10px; color: #888;">
+            <div id="sight-txt">TORCH: 100%</div>
+            <div id="pulse-count" style="color: #00aaff;">PULSES: 0</div>
+        </div>
+    </div>
+
+    <canvas id="ctx" width="400" height="400"></canvas>
+
+    <div id="gamepad">
+        <div id="movement-grid">
+            <div class="ctrl-btn" style="grid-column: 2;" onpointerdown="move(0,-1)">▲</div>
+            <div class="ctrl-btn" style="grid-row: 2; grid-column: 1;" onpointerdown="move(-1,0)">◀</div>
+            <div class="ctrl-btn" style="grid-row: 2; grid-column: 2;" onpointerdown="move(0,1)">▼</div>
+            <div class="ctrl-btn" style="grid-row: 2; grid-column: 3;" onpointerdown="move(1,0)">▶</div>
+        </div>
+        <div class="action-zone">
+            <button id="pulse-btn" onclick="usePulse()">PULSE</button>
+        </div>
+    </div>
+
+    <div id="start-screen" class="modal">
+        <h1 style="color:#ffd700; letter-spacing: 6px; margin-bottom:0; font-size: 24px;">THE DEEP DARK</h1>
+        <p style="font-size: 10px; color: #99ccff; margin-bottom: 12px;">IRONCLAD PATH v2.0</p>
+
+        <input type="text" id="user-in" class="input-box" placeholder="USERNAME" maxlength="12">
+        <input type="password" id="pass-in" class="input-box" placeholder="ACCESS KEY">
+        <button class="primary-btn" onclick="startGame()">DESCEND</button>
+        <button class="support-btn" onclick="openPayment()">Support the Developer</button>
+
+        <div id="board-container">
+            <h3 style="font-size: 12px; color: #ffd700; margin: 0 0 10px 0; letter-spacing: 2px;">TOP SURVIVORS</h3>
+            <div id="board-ui" style="font-size: 11px; color: #00ff41;">
+                LOADING DATA...
+            </div>
+            <div class="firebase-status" id="firebase-status"></div>
+        </div>
+    </div>
+
+    <div id="game-over-screen" class="modal hidden">
+        <h1 style="color:#ff0033; letter-spacing: 4px;">TERMINATED</h1>
+        <p style="font-size: 12px; color: #888; margin: 10px 0;">Session ended</p>
+        <div style="border: 1px solid #333; padding: 15px; margin: 15px 0; background: rgba(255,0,51,0.05); width: 260px; border-radius: 8px;">
+            <div style="margin: 8px 0; font-size: 13px;">
+                <span style="color: #888;">MAX DEPTH:</span>
+                <span id="final-depth" style="color: #ffd700; font-weight: bold;">0</span>
+            </div>
+            <div style="margin: 8px 0; font-size: 13px;">
+                <span style="color: #888;">MOVES:</span>
+                <span id="final-moves" style="color: #ffd700; font-weight: bold;">0</span>
+            </div>
+        </div>
+        <div id="upload-status" style="font-size: 11px; color: #00ff41; margin: 10px 0;"></div>
+        <button class="primary-btn" onclick="returnToMenu()">RETRY</button>
+    </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+    // Use Firebase JS SDK v10.12.0
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+        apiKey: ,
+        authDomain: "the-deep-darkv2.firebaseapp.com",
+        projectId: "the-deep-darkv2",
+        storageBucket: "the-deep-darkv2.firebasestorage.app",
+        messagingSenderId: "200556318632",
+        appId: "1:200556318632:web:a9389ab08ae5dec71b179d",
+        measurementId: "G-RJTGS6M2S1"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Initialize Analytics and log initial page_view
+    try {
+        const analytics = getAnalytics(app);
+        // Optional: record a page_view for single-page apps or custom routing
+        logEvent(analytics, 'page_view', { page_path: window.location.pathname });
+    } catch (e) {
+        // Analytics may fail in some environments; continue without blocking
+        console.warn('Analytics init failed:', e);
+    }
+
+    // Make Firestore functions globally accessible
+    window.firebaseDb = db;
+    window.firebaseAddDoc = addDoc;
+    window.firebaseQuery = query;
+    window.firebaseOrderBy = orderBy;
+    window.firebaseLimit = limit;
+    window.firebaseGetDocs = getDocs;
+    window.firebaseCollection = collection;
+    window.firebaseServerTimestamp = serverTimestamp;
+    window.firebaseReady = true;
+</script>
+
+<script>
+    (function() {
+        const c = document.getElementById('ctx');
+        const x = c.getContext('2d');
+        const sz = 40, mSz = 10;
+        const DM_KEY = "dm_75_access";
+        const STORAGE_KEY = "deepdark_leaderboard";
+
+        let p = {x:1, y:1}, e = {x:8, y:8}, map = [], disc = [];
+        let user = "GUEST", depth = 1, rad = 3.8, pulses = 0, pulseActive = false;
+        let moveCount = 0;
+        let memoryLeaderboard = [];
+
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playStepSound() {
+            if (!audioCtx) return;
+            const bufferSize = audioCtx.sampleRate * 0.08;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1000;
+            filter.Q.value = 2;
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.07);
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        function playMonsterGrowl(distance) {
+            if (!audioCtx || distance > 3) return;
+            const volume = ((4 - distance) / 3) * 0.15;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(65, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(30, audioCtx.currentTime + 0.4);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(150, audioCtx.currentTime);
+
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        window.openPayment = function() {
+            const PAY_URL = "https://cash.app/$JohnLerma75";
+            window.open(PAY_URL, '_blank');
+        };
+
+        function updateFirebaseStatus(msg, isError = false) {
+            const el = document.getElementById('firebase-status');
+            if (el) {
+                el.innerHTML = msg;
+                el.className = isError ? 'firebase-status error-msg' : 'firebase-status';
+            }
+        }
+
+        class Leaderboard {
+            static async load() {
+                if (!window.firebaseReady || !window.firebaseDb) {
+                    console.warn("Firebase not ready, using local memory");
+                    return memoryLeaderboard;
+                }
+                
+                try {
+                    const q = window.firebaseQuery(
+                        window.firebaseCollection(window.firebaseDb, "leaderboard"),
+                        window.firebaseOrderBy("score", "desc"),
+                        window.firebaseLimit(10)
+                    );
+                    const snapshot = await window.firebaseGetDocs(q);
+                    const entries = [];
+                    snapshot.forEach(doc => {
+                        entries.push(doc.data());
+                    });
+                    return entries;
+                } catch (err) {
+                    console.error("Firebase load error:", err);
+                    updateFirebaseStatus("⚠ Load error", true);
+                    return memoryLeaderboard;
+                }
+            }
+
+            static async addScore(name, score, moves) {
+                if (!window.firebaseReady || !window.firebaseDb) {
+                    console.warn("Firebase not ready, saving to local memory");
+                    memoryLeaderboard.push({ name, score, moves, timestamp: new Date().toISOString() });
+                    return;
+                }
+
+                try {
+                    updateFirebaseStatus("⟳ Uploading...");
+                    await window.firebaseAddDoc(
+                        window.firebaseCollection(window.firebaseDb, "leaderboard"),
+                        {
+                            name: name,
+                            score: score,
+                            moves: moves,
+                            timestamp: window.firebaseServerTimestamp()
+                        }
+                    );
+                    document.getElementById('upload-status').innerText = "✓ Score uploaded to global leaderboard";
+                    updateFirebaseStatus("✓ Live");
+                } catch (err) {
+                    console.error("Firebase save error:", err);
+                    updateFirebaseStatus("⚠ Offline", true);
+                    document.getElementById('upload-status').innerText = "⚠ Saved locally (no connection)";
+                    memoryLeaderboard.push({ name, score, moves, timestamp: new Date().toISOString() });
+                }
+            }
+
+            static async getTopScores(limit = 5) {
+                const entries = await this.load();
+                return entries.slice(0, limit);
+            }
+        }
+
+        async function displayLeaderboard() {
+            try {
+                updateFirebaseStatus("Syncing...");
+                const scores = await Leaderboard.getTopScores(5);
+                const boardUi = document.getElementById('board-ui');
+                if (!scores || scores.length === 0) {
+                    boardUi.innerHTML = "NO SURVIVORS YET";
+                    updateFirebaseStatus("");
+                    return;
+                }
+                let html = "";
+                scores.forEach((entry, idx) => {
+                    html += `<div class="leaderboard-entry">
+                        <span class="leaderboard-rank">#${idx + 1}</span>
+                        <span class="leaderboard-name">${entry.name}</span>
+                        <span class="leaderboard-score">D:${entry.score}</span>
+                    </div>`;
+                });
+                boardUi.innerHTML = html;
+                updateFirebaseStatus("✓ Live");
+            } catch (e) {
+                console.error("Display leaderboard error:", e);
+                document.getElementById('board-ui').innerHTML = "SYSTEM OK";
+                updateFirebaseStatus("⚠ Error", true);
+            }
+        }
+
+        function checkPath(startX, startY, endX, endY) {
+            let visited = Array.from({length: mSz}, () => Array(mSz).fill(false));
+            let queue = [{x: startX, y: startY}];
+            visited[startY][startX] = true;
+            while(queue.length > 0) {
+                let curr = queue.shift();
+                if(curr.x === endX && curr.y === endY) return true;
+                let dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+                for(let d of dirs) {
+                    let nx = curr.x + d[0], ny = curr.y + d[1];
+                    if(nx >= 0 && nx < mSz && ny >= 0 && ny < mSz && map[ny][nx] !== 1 && !visited[ny][nx]) {
+                        visited[ny][nx] = true; queue.push({x: nx, y: ny});
+                    }
+                }
+            }
+            return false;
+        }
+
+        function init() {
+            let valid = false;
+            while (!valid) {
+                map = Array.from({length: mSz}, () => Array(mSz).fill(0));
+                for(let i=0; i<mSz; i++) {
+                    for(let j=0; j<mSz; j++) {
+                        if((j===1 && i===1) || (j===8 && i===8)) continue;
+                        if(Math.random() > 0.74) map[i][j] = 1;
+                    }
+                }
                 map[8][8] = 2;
                 if(checkPath(1, 1, 8, 8)) valid = true;
             }
@@ -155,13 +564,10 @@
             }
         });
 
-        // Listen for Firebase initialization complete event and display leaderboard
-        window.addEventListener('firebaseInitialized', displayLeaderboard);
-
-        // Also handle the case where Firebase is already initialized before this script runs
-        if (window.firebaseReady) {
-            displayLeaderboard();
-        }
+        // Initialize leaderboard on page load
+-        displayLeaderboard();
++        // Wait until DOMContentLoaded (module scripts run before this), then initialize leaderboard
++        window.addEventListener('DOMContentLoaded', displayLeaderboard);
     })();
 </script>
 </body>
