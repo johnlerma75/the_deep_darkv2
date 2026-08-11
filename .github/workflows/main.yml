@@ -1,0 +1,35 @@
+name: Deploy with Secrets Injection
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Inject Firebase API Key
+        run: |
+          chmod +x scripts/inject-secrets.sh
+          ./scripts/inject-secrets.sh "${{ secrets.FIREBASE_API_KEY }}"
+
+      - name: Verify injection
+        run: |
+          if grep -q "PLACE_HOLDER_GIT_SECRETS" index.html; then
+            echo "⚠ Warning: Placeholder still found in index.html"
+            exit 1
+          else
+            echo "✓ API key successfully injected"
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
