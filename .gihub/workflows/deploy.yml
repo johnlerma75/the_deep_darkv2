@@ -8,7 +8,7 @@ steps:
   - name: Build project
     # The 'env' block pulls from GitHub Secrets and exposes them to npm run build
     env:
-      REACT_FIREBASE_API_KEY: ${{ secrets.REACT_FIREBASE_API_KEY }}
+      REACT_PLACE_HOLDER_GIT_SECRETS: ${{ secrets.REACT_PLACE_HOLDER_GIT_SECRETS}}
       #VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
     run: npm run build
     
