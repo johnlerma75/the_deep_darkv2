@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Deep Dark: Ironclad Edition</title>
     <style>
+        <p id="game-version" class="version-tag">VERSION v2.0.0</p>
+    
+    .version-tag {
+    font-size: 10px;
+    color: #99ccff;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    opacity: 0.8;
+} 
         * { box-sizing: border-box; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
         .game-wrapper {
             background: #000; color: #00ff41; font-family: 'Courier New', Courier, monospace;
@@ -150,7 +160,7 @@
 
     <div id="start-screen" class="modal">
         <h1 style="color:#ffd700; letter-spacing: 6px; margin-bottom:0; font-size: 24px;">THE DEEP DARK</h1>
-        <p style="font-size: 10px; color: #99ccff; margin-bottom: 12px;">IRONCLAD PATH v2.0</p>
+        <p style="font-size: 10px; color: #99ccff; margin-bottom: 12px;">IRONCLAD PATH v2.0.0</p>
 
         <input type="text" id="user-in" class="input-box" placeholder="USERNAME" maxlength="12">
         <input type="password" id="pass-in" class="input-box" placeholder="ACCESS KEY">
@@ -445,8 +455,7 @@
             if(Math.random() > 0.4) spawnItem(5);
             updateUI();
         }
-
-        function spawnItem(id) {
+function spawnItem(id) {
             let tx, ty, reachable = false, attempts = 0;
             while (!reachable && attempts < 150) {
                 tx = Math.floor(Math.random()*8+1);
@@ -468,7 +477,8 @@
             if(pulses > 0) btn.classList.add('ready'); else btn.classList.remove('ready');
         }
 
-        window.usePulse = function() {
+        window.usePulse = 
+function() {
             initAudio();
             if(pulses <= 0 || pulseActive) return;
             pulses--; pulseActive = true;
@@ -507,7 +517,8 @@
             let g = x.createRadialGradient(p.x*sz+20, p.y*sz+20, 0, p.x*sz+20, p.y*sz+20, currentRad*sz);
             g.addColorStop(0, pulseActive ? 'rgba(0, 170, 255, 0.4)' : 'rgba(0, 255, 65, 0.2)');
             g.addColorStop(1, 'rgba(0,0,0,0)');
-            x.fillStyle = g; x.fillRect(0,0,400,400);
+            x.fillStyle = g; 
+        x.fillRect(0,0,400,400);
             x.fillStyle = themeMain; x.shadowBlur = 10; x.shadowColor = themeMain;
             x.fillRect(p.x*sz+12, p.y*sz+12, 16, 16);
             x.shadowBlur = 0;
@@ -533,7 +544,7 @@
                     let dxS = e.x < p.x ? 1 : -1;
                     let dyS = e.y < p.y ? 1 : -1;
                     if(e.x !== p.x && map[e.y][e.x+dxS] !== 1) e.x += dxS;
-                    else if(e.y !== p.y && map[e.y+dyS][e.x] !== 1) e.y += dyS;
+                    else if(e.y !== p.y && map[e.y+dyS][e.x] !== 1) e.y += dyS;             
                 }
 
                 let monsterDist = Math.sqrt((e.x-p.x)**2 + (e.y-p.y)**2);
@@ -554,7 +565,8 @@
 
         window.startGame = function() {
             initAudio();
-            let uIn = document.getElementById('user-in').value.trim();
+            let uIn = 
+            document.getElementById('user-in').value.trim();
             let pIn = document.getElementById('pass-in').value.trim();
 
             if(pIn === "75") {
@@ -594,6 +606,25 @@
 +        // Wait until DOMContentLoaded (module scripts run before this), then initialize leaderboard
 +        window.addEventListener('DOMContentLoaded', displayLeaderboard);
     })();
+ // Centralized Version Configuration
+const GAME_CONFIG = {
+    title: "THE DEEP DARK",
+    version: "2.0.1", // Update your version string here!
+    buildName: "IRONCLAD PATH"
+};
+
+// Function to sync version info to the UI
+function initVersionDisplay() {
+    const versionElement = document.getElementById("game-version");
+    if (versionElement) {
+        versionElement.textContent = `${GAME_CONFIG.buildName} v${GAME_CONFIG.version}`;
+    }
+    console.log(`[System Initialized] ${GAME_CONFIG.title} - Version ${GAME_CONFIG.version}`);
+}
+
+// Run when the window finishes loading
+window.addEventListener("DOMContentLoaded", initVersionDisplay);
+       
 </script>
 </body>
 </html>
