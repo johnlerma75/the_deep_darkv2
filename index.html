@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Deep Dark: Ironclad Edition</title>
-    <style>   
+    <style>
+        <p id="game-version" class="version-tag">VERSION v2.0.0</p>
+    
     .version-tag {
     font-size: 10px;
     color: #99ccff;
@@ -158,7 +160,7 @@
 
     <div id="start-screen" class="modal">
         <h1 style="color:#ffd700; letter-spacing: 6px; margin-bottom:0; font-size: 24px;">THE DEEP DARK</h1>
-        <p style="font-size: 10px; color: #99ccff; margin-bottom: 12px;">IRONCLAD PATH v2.0.2</p>
+        <p style="font-size: 10px; color: #99ccff; margin-bottom: 12px;">IRONCLAD PATH v2.0.1</p>
 
         <input type="text" id="user-in" class="input-box" placeholder="USERNAME" maxlength="12">
         <input type="password" id="pass-in" class="input-box" placeholder="ACCESS KEY">
@@ -198,15 +200,14 @@
         <button class="primary-btn" onclick="returnToMenu()">RETRY</button>
     </div>
 </div>
-    
-<!-- Firebase SDK -->
-<script type="module">
-    // Use Firebase JS SDK v10.12.0
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
 
-    // Your web app's Firebase configuration
+    <!-- Firebase SDK -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
     const firebaseConfig = {
         apiKey: "PLACE_HOLDER_GIT_SECRETS",
         authDomain: "the-deep-darkv2.firebaseapp.com",
@@ -220,19 +221,19 @@
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
-    // Initialize Analytics and log initial page_view
     try {
         const analytics = getAnalytics(app);
-        // Optional: record a page_view for single-page apps or custom routing
         logEvent(analytics, 'page_view', { page_path: window.location.pathname });
     } catch (e) {
-        // Analytics may fail in some environments; continue without blocking
         console.warn('Analytics init failed:', e);
     }
 
-    // Make Firestore functions globally accessible
+    // Make Firebase functions accessible globally
     window.firebaseDb = db;
+    window.firebaseAuth = auth;
+    window.signInWithEmailAndPassword = signInWithEmailAndPassword;
     window.firebaseAddDoc = addDoc;
     window.firebaseQuery = query;
     window.firebaseOrderBy = orderBy;
@@ -240,10 +241,44 @@
     window.firebaseGetDocs = getDocs;
     window.firebaseCollection = collection;
     window.firebaseServerTimestamp = serverTimestamp;
+    window.firebaseDoc = doc;
+    window.firebaseGetDoc = getDoc;
     window.firebaseReady = true;
 </script>
 
 <script>
+    // Authenticate user and verify contributor status
+    async function loginContributor(email, password) {
+        try {
+            const userCredential = await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+            const user = userCredential.user;
+
+            // Fetch account details from Firestore
+            const userDocRef = window.firebaseDoc(window.firebaseDb, "users", user.uid);
+            const userDoc = await window.firebaseGetDoc(userDocRef);
+
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+
+                // Check for minimum $1 contribution tier access
+                if (userData.contributionTier >= 1) {
+                    console.log("Welcome back, Contributor!");
+                    if (typeof redirectToContributorLandingPage === "function") {
+                        redirectToContributorLandingPage(userData);
+                    }
+                } else {
+                    alert("Access restricted. A minimum $1 contribution is required.");
+                }
+            } else {
+                alert("No contributor profile found.");
+            }
+        } catch (error) {
+            console.error("Login failed:", error.message);
+        }
+    }  
+function redirectToContributorLandingPage(userData) {// Save perks locally or state manager and navigate to subscriber view
+  window.location.href = "/contributor-landing-page";
+}    
     (function() {
         const c = document.getElementById('ctx');
         const x = c.getContext('2d');
@@ -462,11 +497,8 @@ function spawnItem(id) {
                     if (checkPath(p.x, p.y, tx, ty)) reachable = true;
                 }
                 attempts++;
-            }
-            if (reachable) map[ty][tx] = id;
-        }
-
-        function updateUI() {
+    }
+    function updateUI() {
             document.getElementById('disp-depth').innerText = "DEPTH: " + depth;
             document.getElementById('pulse-count').innerText = "PULSES: " + pulses;
             document.getElementById('fuel-bar').style.width = (rad/5 * 100) + "%";
@@ -475,8 +507,7 @@ function spawnItem(id) {
             if(pulses > 0) btn.classList.add('ready'); else btn.classList.remove('ready');
         }
 
-        window.usePulse = 
-function() {
+        window.usePulse = function() {
             initAudio();
             if(pulses <= 0 || pulseActive) return;
             pulses--; pulseActive = true;
@@ -516,15 +547,14 @@ function() {
             g.addColorStop(0, pulseActive ? 'rgba(0, 170, 255, 0.4)' : 'rgba(0, 255, 65, 0.2)');
             g.addColorStop(1, 'rgba(0,0,0,0)');
             x.fillStyle = g; 
-        x.fillRect(0,0,400,400);
+   x.fillRect(0,0,400,400);
             x.fillStyle = themeMain; x.shadowBlur = 10; x.shadowColor = themeMain;
             x.fillRect(p.x*sz+12, p.y*sz+12, 16, 16);
             x.shadowBlur = 0;
             let ed = Math.sqrt((e.x-p.x)**2 + (e.y-p.y)**2);
             if(ed < rad || pulseActive) { x.fillStyle = '#ff0033'; x.fillRect(e.x*sz+12, e.y*sz+12, 16, 16); }
         }
-
-        window.move = function(dx, dy) {
+    window.move = function(dx, dy) {
             initAudio();
             let nx = p.x + dx, ny = p.y + dy;
             if(nx>=0 && nx<mSz && ny>=0 && ny<mSz && map[ny][nx] !== 1) {
@@ -563,8 +593,7 @@ function() {
 
         window.startGame = function() {
             initAudio();
-            let uIn = 
-            document.getElementById('user-in').value.trim();
+            let uIn = document.getElementById('user-in').value.trim();
             let pIn = document.getElementById('pass-in').value.trim();
 
             if(pIn === "75") {
@@ -580,8 +609,7 @@ function() {
             init();
             draw();
         };
-
-        window.returnToMenu = function() {
+    window.returnToMenu = function() {
             document.getElementById('game-over-screen').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
             displayLeaderboard();
@@ -622,48 +650,6 @@ function initVersionDisplay() {
 
 // Run when the window finishes loading
 window.addEventListener("DOMContentLoaded", initVersionDisplay);
-
-    import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
-
-const firebaseConfig = { /* Your Firebase Config Object */ };
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Authenticate user and verify contributor status
-async function loginContributor(email, password) {
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Fetch account details from Firestore
-    const userDocRef = doc(db, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-
-      // Check for minimum $1 contribution tier access
-      if (userData.contributionTier >= 1) {
-        console.log("Welcome back, Contributor!");
-        redirectToContributorLandingPage(userData);
-      } else {
-        alert("Access restricted. A minimum $1 contribution is required.");
-      }
-    } else {
-      alert("No contributor profile found.");
-    }
-  } catch (error) {
-    console.error("Login failed:", error.message);
-  }
-}
-
-function redirectToContributorLandingPage(userData) {
-  // Save perks locally or state manager and navigate to subscriber view
-  window.location.href = "/contributor-landing-page";
-}
        
 </script>
 </body>
