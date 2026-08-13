@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Deep Dark: Ironclad Edition</title>
     <style>
-        <p id="game-version" class="version-tag">VERSION v2.0.0</p>
-    
     .version-tag {
     font-size: 10px;
     color: #99ccff;
@@ -133,6 +131,7 @@
 
 <div class="game-wrapper">
     <div id="ui-header">
+        <p id="game-version" class="version-tag"></p>
         <div class="stats-row">
             <div id="disp-name">AUTH_PENDING</div>
             <div id="disp-depth">DEPTH: 1</div>
@@ -160,7 +159,7 @@
 
     <div id="start-screen" class="modal">
         <h1 style="color:#ffd700; letter-spacing: 6px; margin-bottom:0; font-size: 24px;">THE DEEP DARK</h1>
-        <p style="font-size: 10px; color: #99ccff; margin-bottom: 12px;">IRONCLAD PATH v2.0.1</p>
+        <p id="build-version" style="font-size: 10px; color: #99ccff; margin-bottom: 12px;"></p>
 
         <input type="text" id="user-in" class="input-box" placeholder="USERNAME" maxlength="12">
         <input type="password" id="pass-in" class="input-box" placeholder="ACCESS KEY">
@@ -498,6 +497,12 @@ function spawnItem(id) {
                 }
                 attempts++;
     }
+    if (reachable) {
+        map[ty][tx] = id;
+    } else {
+        console.warn('spawnItem: could not place item id', id);
+    }
+}
     function updateUI() {
             document.getElementById('disp-depth').innerText = "DEPTH: " + depth;
             document.getElementById('pulse-count').innerText = "PULSES: " + pulses;
@@ -628,9 +633,11 @@ function spawnItem(id) {
         });
 
         // Initialize leaderboard on page load
--        displayLeaderboard();
-+        // Wait until DOMContentLoaded (module scripts run before this), then initialize leaderboard
-+        window.addEventListener('DOMContentLoaded', displayLeaderboard);
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', displayLeaderboard);
+        } else {
+            displayLeaderboard();
+        }
     })();
  // Centralized Version Configuration
 const GAME_CONFIG = {
@@ -644,6 +651,10 @@ function initVersionDisplay() {
     const versionElement = document.getElementById("game-version");
     if (versionElement) {
         versionElement.textContent = `${GAME_CONFIG.buildName} v${GAME_CONFIG.version}`;
+    }
+    const buildEl = document.getElementById("build-version");
+    if (buildEl) {
+        buildEl.textContent = `${GAME_CONFIG.buildName} v${GAME_CONFIG.version}`;
     }
     console.log(`[System Initialized] ${GAME_CONFIG.title} - Version ${GAME_CONFIG.version}`);
 }
