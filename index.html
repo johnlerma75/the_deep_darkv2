@@ -199,6 +199,50 @@
     </div>
 </div>
 
+<script>
+    import { initializeApp } from "firebase/app";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
+
+const firebaseConfig = { /* Your Firebase Config Object */ };
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Authenticate user and verify contributor status
+async function loginContributor(email, password) {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Fetch account details from Firestore
+    const userDocRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+
+      // Check for minimum $1 contribution tier access
+      if (userData.contributionTier >= 1) {
+        console.log("Welcome back, Contributor!");
+        redirectToContributorLandingPage(userData);
+      } else {
+        alert("Access restricted. A minimum $1 contribution is required.");
+      }
+    } else {
+      alert("No contributor profile found.");
+    }
+  } catch (error) {
+    console.error("Login failed:", error.message);
+  }
+}
+
+function redirectToContributorLandingPage(userData) {
+  // Save perks locally or state manager and navigate to subscriber view
+  window.location.href = "/contributor-landing-page";
+}
+<script>
+    
 <!-- Firebase SDK -->
 <script type="module">
     // Use Firebase JS SDK v10.12.0
